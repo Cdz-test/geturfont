@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GetUrFont</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@latest/css/all.min.css">
+    <style id="dynamic-fonts"></style>
+    <meta name="description" content="Tester une font - Tester une police d'écriture">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">
+                <i class="fas fa-font mr-2"></i>Google Fonts Viewer
+            </h1>
+
+            <div class="mb-6">
+                <div class="flex items-center gap-4 mb-4">
+                    <input type="text" id="searchFont" placeholder="Search fonts..." class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button id="refreshFonts" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    </button>
+                </div>
+
+                <div class="flex gap-4 mb-4">
+                    <select id="category" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Categories</option>
+                        <option value="serif">Serif</option>
+                        <option value="sans-serif">Sans Serif</option>
+                        <option value="display">Display</option>
+                        <option value="handwriting">Handwriting</option>
+                        <option value="monospace">Monospace</option>
+                    </select>
+
+                    <select id="sort" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="popularity">Sort by Popularity</option>
+                        <option value="trending">Sort by Trending</option>
+                        <option value="alpha">Sort Alphabetically</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="border rounded-lg p-4">
+                    <h2 class="text-xl font-semibold mb-4">Font List</h2>
+                    <div id="fontList" class="h-[400px] overflow-y-auto space-y-2"></div>
+                </div>
+
+                <div class="border rounded-lg p-4">
+                    <h2 class="text-xl font-semibold mb-4">Preview</h2>
+                    <input type="text" id="previewText" value="Type something here..." class="w-full p-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div id="fontPreview" class="text-3xl min-h-[100px] p-4 border rounded-lg"></div>
+                    <div id="fontInfo" class="mt-4 text-sm text-gray-600"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = 'AIzaSyBwIX97bVWr3-6AIUvGkcNnmFgirefZ6Sw';
+        let fonts = [];
+        let currentFont = null;
+
+        async function loadGoogleFonts() {
+            try {
+                const response = await fetch(`https://www.googleapis.com/webfonts/v1/webfonts?key=${API_KEY}&sort=${document.getElementById('sort').value}`);
+                const data = await response.json();
+                fonts = data.items;
+                displayFonts();
+            } catch (error) {
+                console.error('Error loading fonts:', error);
+            }
+        }
+
+        function displayFonts() {
+            const fontList = document.getElementById('fontList');
+            const searchTerm = document.getElementById('searchFont').value.toLowerCase();
+            const category = document.getElementById('category').value;
+            const dynamicFonts = document.getElementById('dynamic-fonts');
+
+            fontList.innerHTML = '';
+            let fontStyles = '';
+
+            const filteredFonts = fonts.filter(font => {
+                const matchesSearch = font.family.toLowerCase().includes(searchTerm);
+                const matchesCategory = !category || font.category === category;
+                return matchesSearch && matchesCategory;
+            });
+
+            filteredFonts.forEach(font => {
+                fontStyles += `@import url('https://fonts.googleapis.com/css2?family=${font.family.replace(/\s+/g, '+')}');\n`;
+                const fontButton = document.createElement('button');
+                fontButton.className = 'w-full text-left p-2 hover:bg-gray-100 rounded transition-colors';
+                fontButton.textContent = font.family;
+                fontButton.style.fontFamily = `'${font.family}', sans-serif`;
+                fontButton.onclick = () => loadAndPreviewFont(font);
+                fontList.appendChild(fontButton);
+            });
+
+            dynamicFonts.textContent = fontStyles;
+        }
+
+        async function loadAndPreviewFont(font) {
+            currentFont = font;
+            const link = document.createElement('link');
+            link.href = `https://fonts.googleapis.com/css2?family=${font.family.replace(/\s+/g, '+')}`;
+            link.rel = 'stylesheet';
+            document.head.appendChild(link);
+
+            const preview = document.getElementById('fontPreview');
+            const previewText = document.getElementById('previewText');
+            preview.style.fontFamily = `'${font.family}', sans-serif`;
+            preview.textContent = previewText.value;
+
+            const fontInfo = document.getElementById('fontInfo');
+            fontInfo.innerHTML = `
+                <p><strong>Font Family:</strong> ${font.family}</p>
+                <p><strong>Category:</strong> ${font.category}</p>
+                <p><strong>Variants:</strong> ${font.variants.join(', ')}</p>
+            `;
+        }
+
+        document.getElementById('searchFont').addEventListener('input', displayFonts);
+        document.getElementById('category').addEventListener('change', displayFonts);
+        document.getElementById('sort').addEventListener('change', loadGoogleFonts);
+        document.getElementById('refreshFonts').addEventListener('click', loadGoogleFonts);
+        document.getElementById('previewText').addEventListener('input', (e) => {
+            if (currentFont) {
+                document.getElementById('fontPreview').textContent = e.target.value;
+            }
+        });
+
+        loadGoogleFonts();
+    </script>
+</body>
+</html>
