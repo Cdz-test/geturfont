@@ -65,6 +65,7 @@
         let fontCache = new Map();
         let debounceTimer;
         let fontsLoaded = false;
+        let loadedFontFamilies = new Set();
         
         const debounce = (func, wait) => {
             return (...args) => {
@@ -96,15 +97,26 @@
             }
         }
 
+        async function preloadFontFamily(fontFamily) {
+            if (loadedFontFamilies.has(fontFamily)) return;
+
+            const font = new FontFace(fontFamily, `url(https://fonts.googleapis.com/css2?family=${fontFamily.replace(/\s+/g, '+')}:wght@400&display=swap)`);
+            try {
+                await font.load();
+                document.fonts.add(font);
+                loadedFontFamilies.add(fontFamily);
+            } catch (error) {
+                console.error(`Error loading font ${fontFamily}:`, error);
+            }
+        }
+
         function displayFonts() {
             const fontList = document.getElementById('fontList');
             const searchTerm = document.getElementById('searchFont').value.toLowerCase();
             const category = document.getElementById('category').value;
-            const dynamicFonts = document.getElementById('dynamic-fonts');
-
+            
             fontList.innerHTML = '';
             let fragment = document.createDocumentFragment();
-            let fontStyles = '';
 
             const filteredFonts = fonts.filter(font => {
                 const matchesSearch = font.family.toLowerCase().includes(searchTerm);
@@ -112,7 +124,7 @@
                 return matchesSearch && matchesCategory;
             });
 
-            const batchSize = 20;
+            const batchSize = 15;
             let currentIndex = 0;
 
             function loadBatch() {
@@ -120,18 +132,21 @@
                 
                 for (let i = currentIndex; i < endIndex; i++) {
                     const font = filteredFonts[i];
-                    fontStyles += `@import url('https://fonts.googleapis.com/css2?family=${font.family.replace(/\s+/g, '+')}:wght@400&display=swap');\n`;
-                    
+                    const fontFamily = font.family;
+
+                    const link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    link.href = `https://fonts.googleapis.com/css2?family=${fontFamily.replace(/\s+/g, '+')}:wght@400&display=swap`;
+                    document.head.appendChild(link);
+
                     const fontButton = document.createElement('button');
                     fontButton.className = 'w-full text-left p-2 hover:bg-gray-100 rounded transition-colors';
-                    fontButton.textContent = font.family;
-                    fontButton.style.fontFamily = `'${font.family}', sans-serif`;
+                    fontButton.textContent = fontFamily;
+                    fontButton.style.fontFamily = `'${fontFamily}', sans-serif`;
                     fontButton.onclick = () => loadAndPreviewFont(font);
+                    
+                    preloadFontFamily(fontFamily);
                     fragment.appendChild(fontButton);
-                }
-
-                if (currentIndex === 0) {
-                    dynamicFonts.textContent = fontStyles;
                 }
 
                 fontList.appendChild(fragment);
@@ -145,33 +160,20 @@
             loadBatch();
         }
 
-        const loadAndPreviewFont = (() => {
-            const loadedFonts = new Set();
-            
-            return async (font) => {
-                currentFont = font;
-                
-                if (!loadedFonts.has(font.family)) {
-                    const link = document.createElement('link');
-                    link.href = `https://fonts.googleapis.com/css2?family=${font.family.replace(/\s+/g, '+')}:wght@400&display=swap`;
-                    link.rel = 'stylesheet';
-                    document.head.appendChild(link);
-                    loadedFonts.add(font.family);
-                }
+        const loadAndPreviewFont = (font) => {
+            currentFont = font;
+            const preview = document.getElementById('fontPreview');
+            const previewText = document.getElementById('previewText');
+            preview.style.fontFamily = `'${font.family}', sans-serif`;
+            preview.textContent = previewText.value;
 
-                const preview = document.getElementById('fontPreview');
-                const previewText = document.getElementById('previewText');
-                preview.style.fontFamily = `'${font.family}', sans-serif`;
-                preview.textContent = previewText.value;
-
-                const fontInfo = document.getElementById('fontInfo');
-                fontInfo.innerHTML = `
-                    <p><strong>Font Family:</strong> ${font.family}</p>
-                    <p><strong>Category:</strong> ${font.category}</p>
-                    <p><strong>Variants:</strong> ${font.variants.join(', ')}</p>
-                `;
-            };
-        })();
+            const fontInfo = document.getElementById('fontInfo');
+            fontInfo.innerHTML = `
+                <p><strong>Font Family:</strong> ${font.family}</p>
+                <p><strong>Category:</strong> ${font.category}</p>
+                <p><strong>Variants:</strong> ${font.variants.join(', ')}</p>
+            `;
+        };
 
         document.getElementById('searchFont').addEventListener('input', debounce(displayFonts, 300));
         document.getElementById('category').addEventListener('change', displayFonts);
@@ -181,6 +183,7 @@
         });
         document.getElementById('refreshFonts').addEventListener('click', () => {
             fontCache.clear();
+            loadedFontFamilies.clear();
             fontsLoaded = false;
             loadGoogleFonts();
         });
